@@ -4,6 +4,7 @@ import jwt
 from fastapi import APIRouter, HTTPException, status
 
 from app.core.deps import CurrentUser, TokenRepoDep, UserRepoDep
+from app.core.response import Response, error_responses, ok
 from app.core.security import (
     REFRESH_TOKEN_TYPE,
     create_access_token,
@@ -27,23 +28,26 @@ async def _issue_token_pair(tokens: TokenRepoDep, user_id: uuid.UUID) -> TokenRe
 
 @router.post(
     "/register",
-    response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(409),
 )
-async def register(body: RegisterRequest, users: UserRepoDep) -> User:
+async def register(
+    body: RegisterRequest, users: UserRepoDep
+) -> Response[UserResponse]:
     if await users.get_by_name(body.name) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username already taken",
         )
     user = User(name=body.name, hashed_password=hash_password(body.password))
-    return await users.create(user)
+    created = await users.create(user)
+    return ok(UserResponse.model_validate(created))
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", responses=error_responses(401, 403))
 async def login(
     body: LoginRequest, users: UserRepoDep, tokens: TokenRepoDep
-) -> TokenResponse:
+) -> Response[TokenResponse]:
     user = await users.get_by_name(body.name)
     if user is None or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
@@ -56,13 +60,13 @@ async def login(
             detail="Inactive user",
         )
     assert user.id is not None
-    return await _issue_token_pair(tokens, user.id)
+    return ok(await _issue_token_pair(tokens, user.id))
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", responses=error_responses(401))
 async def refresh(
     body: RefreshRequest, users: UserRepoDep, tokens: TokenRepoDep
-) -> TokenResponse:
+) -> Response[TokenResponse]:
     invalid = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid refresh token",
@@ -97,21 +101,22 @@ async def refresh(
         raise invalid
 
     assert user.id is not None
-    return await _issue_token_pair(tokens, user.id)
+    return ok(await _issue_token_pair(tokens, user.id))
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(body: LogoutRequest, tokens: TokenRepoDep) -> None:
+@router.post("/logout")
+async def logout(body: LogoutRequest, tokens: TokenRepoDep) -> Response[None]:
     # Idempotent: an invalid/expired token simply has nothing to revoke.
     try:
         payload = decode_token(body.refresh_token)
     except jwt.PyJWTError:
-        return
+        return ok(None)
     jti = payload.get("jti")
     if jti:
         await tokens.revoke(jti)
+    return ok(None)
 
 
-@router.get("/me", response_model=UserResponse)
-async def me(current_user: CurrentUser) -> User:
-    return current_user
+@router.get("/me", responses=error_responses(401, 403))
+async def me(current_user: CurrentUser) -> Response[UserResponse]:
+    return ok(UserResponse.model_validate(current_user))

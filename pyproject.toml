@@ -22,3 +22,36 @@ members = ["libs/*"]
 
 [tool.uv.sources]
 cerebral-lib = { workspace = true }
+
+
+
+[tool.pyright]
+# Target environment settings
+pythonVersion = "3.13"
+pythonPlatform = "Linux"
+
+# Files and directories to process or ignore
+include = ["src", "tests"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "build"
+]
+ignore = ["src/legacy_code/*.py"]
+
+# Basic configuration
+typeCheckingMode = "standard" # Options: "off", "basic", "standard", "strict"
+useLibraryCodeForTypes = true
+
+# Strictness overrides and rule tweaks
+reportMissingTypeStubs = "warning"
+reportUnknownParameterType = "error"
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownVariableType = false
+reportMissingImports = "error"
+
+# Path to the virtual environment (helps resolve third-party packages)
+venvPath = "."
+venv = ".venv"

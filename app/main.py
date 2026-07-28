@@ -1,15 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.db import init_db
-from app.repo.base import (
-    DuplicateLabelNameError,
-    InvalidDateRangeError,
-    UnknownLabelsError,
-)
+from app.core.errors import register_exception_handlers
+from app.core.tracing import RequestIdMiddleware
 from app.routes import api_router
 
 try:
@@ -23,38 +19,25 @@ if sentry_sdk and settings.sentry_dsn and settings.ENVIRONMENT != "local":
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    # await init_db()
     yield
 
 
-app = FastAPI(debug=True, lifespan=lifespan)
+# debug stays off: with it on, Starlette answers unhandled errors with the
+# traceback itself, and app.core.errors never gets to replace it with something
+# the caller can safely be shown.
+app = FastAPI(debug=False, lifespan=lifespan)
+
+# Outermost of the two, so the trace is set before anything else runs and the
+# id is on the response whichever handler produced it.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+app.add_middleware(RequestIdMiddleware)
+
+register_exception_handlers(app)
 app.include_router(api_router)
-
-
-# Repositories raise domain errors instead of HTTP ones; they are translated
-# here so every route reports them the same way.
-@app.exception_handler(UnknownLabelsError)
-async def unknown_labels_handler(
-    request: Request, exc: UnknownLabelsError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)}
-    )
-
-
-@app.exception_handler(DuplicateLabelNameError)
-async def duplicate_label_handler(
-    request: Request, exc: DuplicateLabelNameError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_409_CONFLICT, content={"detail": str(exc)}
-    )
-
-
-@app.exception_handler(InvalidDateRangeError)
-async def invalid_date_range_handler(
-    request: Request, exc: InvalidDateRangeError
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": str(exc)}
-    )

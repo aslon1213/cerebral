@@ -12,13 +12,14 @@ import uuid
 # Table model
 # --------------------------------------------------------------------------- #
 class User(SQLModel, table=True):
-    __tablename__ = "users"
+    __tablename__ = "users"  # pyright: ignore[reportAssignmentType]
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(index=True, unique=True)
     hashed_password: str
     secret_name: str | None = None
     age: int | None = None
     is_active: bool = Field(default=True)
+    role: str = Field(default="user")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),

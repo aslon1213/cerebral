@@ -11,6 +11,7 @@ from app.core.deps import (
     ProjectRepoDep,
     TaskRepoDep,
 )
+from app.core.response import Response, error_responses, ok
 from app.repo.base import Page, SortOrder
 from app.repo.priority import PriorityType
 from app.repo.project import (
@@ -22,20 +23,26 @@ from app.repo.project import (
 )
 from app.repo.task import TaskResponse, TaskSort, TaskStatus
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+# Every route here needs a bearer token, and answers 403 for a project owned by
+# somebody else; the rest is documented per route. 400 is the unknown-label
+# case, which any route that accepts label ids can hit.
+router = APIRouter(
+    prefix="/projects", tags=["projects"], responses=error_responses(401, 403)
+)
 
 
-@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, responses=error_responses(400))
 async def create_project(
     body: ProjectCreate, current_user: CurrentUser, projects: ProjectRepoDep
-) -> Project:
+) -> Response[ProjectResponse]:
     project = Project(
         **body.model_dump(exclude={"label_ids"}), created_by=current_user.id
     )
-    return await projects.create(project, body.label_ids)
+    created = await projects.create(project, body.label_ids)
+    return ok(ProjectResponse.model_validate(created))
 
 
-@router.get("", response_model=Page[ProjectResponse])
+@router.get("")
 async def list_projects(
     current_user: CurrentUser,
     projects: ProjectRepoDep,
@@ -46,7 +53,7 @@ async def list_projects(
     order: SortOrder = SortOrder.DESC,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> Page[ProjectResponse]:
+) -> Response[Page[ProjectResponse]]:
     items, total = await projects.list(
         current_user.id,
         q=q,
@@ -57,28 +64,30 @@ async def list_projects(
         limit=limit,
         offset=offset,
     )
-    return Page[ProjectResponse].model_validate(
-        {"items": items, "total": total, "limit": limit, "offset": offset}
+    return ok(
+        Page[ProjectResponse].model_validate(
+            {"items": items, "total": total, "limit": limit, "offset": offset}
+        )
     )
 
 
-@router.get("/{project_id}", response_model=ProjectResponse)
+@router.get("/{project_id}", responses=error_responses(404))
 async def get_project(
     project_id: ProjectAccess, current_user: CurrentUser, projects: ProjectRepoDep
-) -> Project:
+) -> Response[ProjectResponse]:
     project = await projects.get(project_id, current_user.id)
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
-    return project
+    return ok(ProjectResponse.model_validate(project))
 
 
-@router.patch("/{project_id}", response_model=ProjectResponse)
+@router.patch("/{project_id}", responses=error_responses(400, 404))
 async def update_project(
     project_id: ProjectAccess,
     body: ProjectUpdate,
     current_user: CurrentUser,
     projects: ProjectRepoDep,
-) -> Project:
+) -> Response[ProjectResponse]:
     project = await projects.update(
         project_id,
         current_user.id,
@@ -87,46 +96,47 @@ async def update_project(
     )
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
-    return project
+    return ok(ProjectResponse.model_validate(project))
 
 
-@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{project_id}", responses=error_responses(404))
 async def delete_project(
     project_id: ProjectAccess, current_user: CurrentUser, projects: ProjectRepoDep
-) -> None:
+) -> Response[None]:
     """Deleting a project also deletes the tasks inside it."""
     if not await projects.delete(project_id, current_user.id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    return ok(None)
 
 
-@router.put("/{project_id}/labels/{label_id}", response_model=ProjectResponse)
+@router.put("/{project_id}/labels/{label_id}", responses=error_responses(404))
 async def attach_label(
     project_id: ProjectAccess,
     label_id: LabelAccess,
     current_user: CurrentUser,
     projects: ProjectRepoDep,
-) -> Project:
+) -> Response[ProjectResponse]:
     """Idempotent: attaching a label twice leaves a single link row."""
     project = await projects.add_label(project_id, current_user.id, label_id)
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
-    return project
+    return ok(ProjectResponse.model_validate(project))
 
 
-@router.delete("/{project_id}/labels/{label_id}", response_model=ProjectResponse)
+@router.delete("/{project_id}/labels/{label_id}", responses=error_responses(404))
 async def detach_label(
     project_id: ProjectAccess,
     label_id: LabelAccess,
     current_user: CurrentUser,
     projects: ProjectRepoDep,
-) -> Project:
+) -> Response[ProjectResponse]:
     project = await projects.remove_label(project_id, current_user.id, label_id)
     if project is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
-    return project
+    return ok(ProjectResponse.model_validate(project))
 
 
-@router.get("/{project_id}/tasks", response_model=Page[TaskResponse])
+@router.get("/{project_id}/tasks", responses=error_responses(404))
 async def list_project_tasks(
     project_id: ProjectAccess,
     current_user: CurrentUser,
@@ -141,7 +151,7 @@ async def list_project_tasks(
     order: SortOrder = SortOrder.DESC,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> Page[TaskResponse]:
+) -> Response[Page[TaskResponse]]:
     items, total = await tasks.list(
         current_user.id,
         project_id=project_id,
@@ -156,6 +166,8 @@ async def list_project_tasks(
         limit=limit,
         offset=offset,
     )
-    return Page[TaskResponse].model_validate(
-        {"items": items, "total": total, "limit": limit, "offset": offset}
+    return ok(
+        Page[TaskResponse].model_validate(
+            {"items": items, "total": total, "limit": limit, "offset": offset}
+        )
     )
