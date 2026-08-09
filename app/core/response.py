@@ -51,6 +51,17 @@ class ErrorCode(StrEnum):
     UNKNOWN_LABELS = "unknown_labels"
     DUPLICATE_LABEL_NAME = "duplicate_label_name"
     INVALID_DATE_RANGE = "invalid_date_range"
+    DUPLICATE_AGENT_NAME = "duplicate_agent_name"
+    DUPLICATE_REPO_NAME = "duplicate_repo_name"
+    RESOURCE_IN_USE = "resource_in_use"
+    INVALID_TRANSITION = "invalid_transition"
+    HISTORY_EXISTS = "history_exists"
+    REPO_ALREADY_ATTACHED = "repo_already_attached"
+    REPO_NOT_ATTACHED = "repo_not_attached"
+    UNKNOWN_PARENT_EVENT = "unknown_parent_event"
+    INVALID_CODE_CHANGE = "invalid_code_change"
+    INTERVENTION_ALREADY_RESOLVED = "intervention_already_resolved"
+    INTERVENTION_KIND_MISMATCH = "intervention_kind_mismatch"
 
 
 _CODES_BY_STATUS: dict[int, ErrorCode] = {

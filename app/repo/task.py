@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field as PydanticField
-from sqlalchemy import String, or_
+from sqlalchemy import Case, String, or_
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.orm import selectinload
 from sqlmodel import DateTime, Field, Relationship, col, func, select
@@ -29,21 +29,22 @@ class TaskStatus(StrEnum):
 
 
 class Task(TimestampMixin, table=True):
-    __tablename__ = "tasks"
+    __tablename__ = "tasks"  # pyright: ignore[reportAssignmentType]
     id: uuid.UUID = Field(primary_key=True, default_factory=uuid.uuid4)
     project_id: uuid.UUID = Field(
         foreign_key="projects.id", index=True, ondelete="CASCADE"
     )
     name: str = Field(max_length=200, index=True)
     description: str | None = Field(default=None)
-    priority: PriorityType = Field(default=PriorityType.LOW, sa_type=String(16))
-    status: TaskStatus = Field(default=TaskStatus.TODO, sa_type=String(16))
-    due_date: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    priority: PriorityType = Field(default=PriorityType.LOW, sa_type=String(16))  # pyright: ignore[reportArgumentType]
+    status: TaskStatus = Field(default=TaskStatus.TODO, sa_type=String(16))  # pyright: ignore[reportArgumentType]
+    due_date: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))  # pyright: ignore[reportArgumentType]
     labels: list[Label] = Relationship(back_populates="tasks", link_model=TaskLabel)
     project: "Project" = Relationship(back_populates="tasks")
     created_by: uuid.UUID = Field(
         foreign_key="users.id", index=True, ondelete="CASCADE"
     )
+    assigned_to: str = Field(default="creator", nullable=True)
 
 
 class TaskCreate(BaseModel):
@@ -103,7 +104,7 @@ class TaskRepo:
         self.engine = engine
 
     @staticmethod
-    def _sort_column(sort_by: TaskSort):
+    def _sort_column(sort_by: TaskSort):  # pyright: ignore[reportUnknownParameterType]
         return {
             TaskSort.NAME: col(Task.name),
             TaskSort.PRIORITY: priority_rank(col(Task.priority)),

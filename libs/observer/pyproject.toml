@@ -1,0 +1,10 @@
+[project]
+name = "observer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "structlog>=26.1.0",
+    "watchdog>=6.0.0",
+]

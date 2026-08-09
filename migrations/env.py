@@ -5,7 +5,7 @@ from sqlalchemy import pool
 from app.repo.base import SQLModel
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
+from app.repo.types import PydanticJSONB
 from alembic import context
 from app.repo import *
 from app.core.config import settings
@@ -35,6 +35,14 @@ target_metadata = SQLModel.metadata
 config.set_main_option("sqlalchemy.url", str(settings.pg.dsn))
 
 
+def render_item(type_, obj, autogen_context):
+    print("render_item:", type_, type(obj).__name__)
+    if type_ == "type" and isinstance(obj, PydanticJSONB):
+        autogen_context.imports.add("from sqlalchemy.dialects import postgresql")
+        return "postgresql.JSONB(astext_type=sa.Text())"
+    return False
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -60,7 +68,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_item=render_item,
+        compare_type=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

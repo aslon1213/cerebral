@@ -4,4 +4,14 @@ The models reference each other by name (``Relationship("Project")``), so they
 all have to be imported before SQLAlchemy can configure the mappers.
 """
 
-from . import labels, project, task, tokens, users  # noqa: F401
+from . import (  # noqa: F401
+    agent,
+    api_keys,
+    execution,
+    git_repo,
+    labels,
+    project,
+    task,
+    tokens,
+    users,
+)

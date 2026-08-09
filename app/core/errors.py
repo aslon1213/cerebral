@@ -24,10 +24,21 @@ from app.core.response import (
 )
 from app.core.tracing import current_request_id, trace_context_from_scope
 from app.repo.base import (
+    DuplicateAgentNameError,
+    DuplicateGitRepoNameError,
     DuplicateLabelNameError,
+    ExecutionHistoryExistsError,
+    InterventionAlreadyResolvedError,
+    InterventionKindMismatchError,
+    InvalidCodeChangeError,
     InvalidDateRangeError,
+    InvalidTransitionError,
+    RepoAlreadyAttachedError,
     RepoError,
+    RepoNotAttachedError,
+    ResourceInUseError,
     UnknownLabelsError,
+    UnknownParentEventError,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +57,47 @@ REPO_ERRORS: dict[type[RepoError], tuple[int, ErrorCode]] = {
     InvalidDateRangeError: (
         status.HTTP_422_UNPROCESSABLE_CONTENT,
         ErrorCode.INVALID_DATE_RANGE,
+    ),
+    DuplicateAgentNameError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.DUPLICATE_AGENT_NAME,
+    ),
+    DuplicateGitRepoNameError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.DUPLICATE_REPO_NAME,
+    ),
+    ResourceInUseError: (status.HTTP_409_CONFLICT, ErrorCode.RESOURCE_IN_USE),
+    InvalidTransitionError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.INVALID_TRANSITION,
+    ),
+    ExecutionHistoryExistsError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.HISTORY_EXISTS,
+    ),
+    RepoAlreadyAttachedError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.REPO_ALREADY_ATTACHED,
+    ),
+    RepoNotAttachedError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.REPO_NOT_ATTACHED,
+    ),
+    UnknownParentEventError: (
+        status.HTTP_400_BAD_REQUEST,
+        ErrorCode.UNKNOWN_PARENT_EVENT,
+    ),
+    InvalidCodeChangeError: (
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        ErrorCode.INVALID_CODE_CHANGE,
+    ),
+    InterventionAlreadyResolvedError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.INTERVENTION_ALREADY_RESOLVED,
+    ),
+    InterventionKindMismatchError: (
+        status.HTTP_409_CONFLICT,
+        ErrorCode.INTERVENTION_KIND_MISMATCH,
     ),
 }
 

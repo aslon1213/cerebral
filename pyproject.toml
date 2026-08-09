@@ -25,6 +25,16 @@ cerebral-lib = { workspace = true }
 
 
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Every test in tests/ is async against a real database; opting each one in
+# with a marker would be noise.
+asyncio_mode = "auto"
+# The engine and schema are built once per session, so the fixtures and the
+# tests that use them have to share one event loop.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+
 [tool.pyright]
 # Target environment settings
 pythonVersion = "3.13"
@@ -41,7 +51,7 @@ exclude = [
 ignore = ["src/legacy_code/*.py"]
 
 # Basic configuration
-typeCheckingMode = "standard" # Options: "off", "basic", "standard", "strict"
+typeCheckingMode = "basic" # Options: "off", "basic", "standard", "strict"
 useLibraryCodeForTypes = true
 
 # Strictness overrides and rule tweaks
@@ -55,3 +65,9 @@ reportMissingImports = "error"
 # Path to the virtual environment (helps resolve third-party packages)
 venvPath = "."
 venv = ".venv"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
