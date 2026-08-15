@@ -1,0 +1,29 @@
+# Secrets — never bake these into an image
+.env
+.env.*
+!.env.example
+
+# Host virtualenv: macOS-specific, would shadow the image's /app/.venv
+.venv/
+venv/
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+.git/
+.gitignore
+.github/
+
+tests/
+docs/
+scripts/
+deploy/
+Dockerfile
+.dockerignore
+
+.DS_Store
+*.log
