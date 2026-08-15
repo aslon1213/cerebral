@@ -21,6 +21,7 @@ __pycache__/
 tests/
 docs/
 scripts/
+!scripts/start.sh
 deploy/
 Dockerfile
 .dockerignore

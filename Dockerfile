@@ -45,11 +45,13 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-# Application code. migrations/ and alembic.ini come along so the same image can
-# run `alembic upgrade head` as a one-off job before rollout.
+# Application code. migrations/ and alembic.ini come along because start.sh
+# applies migrations on boot; alembic.ini points at %(here)s/migrations, which
+# resolves under this WORKDIR.
 COPY --chown=app:app app/ ./app/
 COPY --chown=app:app migrations/ ./migrations/
 COPY --chown=app:app alembic.ini ./
+COPY --chown=app:app scripts/start.sh ./scripts/start.sh
 
 USER app
 
@@ -58,7 +60,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os,urllib.request;urllib.request.urlopen('http://127.0.0.1:'+os.environ['PORT']+'/openapi.json',timeout=4)"
 
-# `fastapi run` binds :8000 unless told otherwise, so the port is passed
-# explicitly — Railway injects its own PORT and routes to that, and the
-# HEALTHCHECK above probes the same variable.
-CMD ["sh", "-c", "exec fastapi run app/main.py --host 0.0.0.0 --port ${PORT}"]
+# start.sh migrates, then execs `fastapi run` on $PORT — the same variable the
+# HEALTHCHECK above probes, and the one Railway injects and routes to.
+CMD ["./scripts/start.sh"]
