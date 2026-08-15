@@ -8,6 +8,11 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
+# Railway's builder rejects cache mounts without an id, and only persists a
+# cache whose id is prefixed with `s/<service id>-`. Railway passes the service
+# id in as a build arg; locally the default just yields a stable literal id.
+ARG RAILWAY_SERVICE_ID=local
+
 # Dependency metadata only, so the (slow) dependency layer is cached and only
 # rebuilt when the lockfile or a workspace member's manifest changes.
 # libs/*/pyproject.toml and their READMEs are part of the uv workspace, so uv
@@ -16,14 +21,14 @@ COPY pyproject.toml uv.lock ./
 COPY libs/cerebral/pyproject.toml libs/cerebral/README.md ./libs/cerebral/
 COPY libs/observer/pyproject.toml libs/observer/README.md ./libs/observer/
 
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,id=s/${RAILWAY_SERVICE_ID}-uv,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-workspace
 
 # Now the workspace sources, then install the workspace package itself
 # (cerebral-lib). --no-editable bakes it into the venv as a real wheel, so the
 # runtime image does not need libs/ on disk.
 COPY libs/ ./libs/
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,id=s/${RAILWAY_SERVICE_ID}-uv,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
 # Runtime
@@ -60,4 +65,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os,urllib.request;urllib.request.urlopen('http://127.0.0.1:'+os.environ['PORT']+'/openapi.json',timeout=4)"
 
-CMD ["fastapi", "run", "app/main.py"]
+# `fastapi run` binds :8000 unless told otherwise, so the port is passed
+# explicitly — Railway injects its own PORT and routes to that, and the
+# HEALTHCHECK above probes the same variable.
+CMD ["sh", "-c", "exec fastapi run app/main.py --host 0.0.0.0 --port ${PORT}"]
